@@ -1,48 +1,22 @@
-use tauri::{
-  plugin::{Builder, TauriPlugin},
-  Manager, Runtime,
-};
+//! App-scoped cloud file storage for iOS and Android.
+//!
+//! The public data contract can be used on any target. Plugin registration and
+//! native cloud access are available only on mobile targets.
+//! Provider operations are under development; this crate is not release-ready.
 
-pub use models::*;
-
-#[cfg(desktop)]
-mod desktop;
-#[cfg(mobile)]
-mod mobile;
-
-mod commands;
 mod error;
 mod models;
 
-pub use error::{Error, Result};
+pub use error::{Error, ErrorCode, Result};
+pub use models::*;
 
-#[cfg(desktop)]
-use desktop::CloudStorage;
 #[cfg(mobile)]
-use mobile::CloudStorage;
+mod mobile;
 
-/// Extensions to [`tauri::App`], [`tauri::AppHandle`] and [`tauri::Window`] to access the cloud-storage APIs.
-pub trait CloudStorageExt<R: Runtime> {
-  fn cloud_storage(&self) -> &CloudStorage<R>;
-}
-
-impl<R: Runtime, T: Manager<R>> crate::CloudStorageExt<R> for T {
-  fn cloud_storage(&self) -> &CloudStorage<R> {
-    self.state::<CloudStorage<R>>().inner()
-  }
-}
-
-/// Initializes the plugin.
-pub fn init<R: Runtime>() -> TauriPlugin<R> {
-  Builder::new("cloud-storage")
-    .invoke_handler(tauri::generate_handler![commands::ping])
-    .setup(|app, api| {
-      #[cfg(mobile)]
-      let cloud_storage = mobile::init(app, api)?;
-      #[cfg(desktop)]
-      let cloud_storage = desktop::init(app, api)?;
-      app.manage(cloud_storage);
-      Ok(())
-    })
-    .build()
+/// Registers the native mobile plugin.
+#[cfg(mobile)]
+pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("cloud-storage")
+        .setup(|_app, api| mobile::register(api))
+        .build()
 }

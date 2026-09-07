@@ -1,17 +1,31 @@
 [package]
 name = "tauri-plugin-cloud-storage"
 version = "0.1.0"
-authors = [ "You" ]
-description = ""
+authors = ["daniel-mader"]
+description = "App-scoped cloud file storage for Tauri on iOS and Android."
 edition = "2021"
 rust-version = "1.77.2"
 exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
 links = "tauri-plugin-cloud-storage"
+repository = "https://github.com/impierce/tauri-plugin-cloud-storage"
+license = "Apache-2.0"
 
 [dependencies]
-tauri = { version = "2.2.4" }
-serde = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
+
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri = { version = "2.4" }
+
+[dev-dependencies]
+serde_json = "1.0"
 
 [build-dependencies]
 tauri-plugin = { version = "2.0.3", features = ["build"] }
+
+[package.metadata.platforms.support]
+android = { level = "none", notes = "Google Drive provider under development" }
+ios = { level = "none", notes = "iCloud provider under development" }
+macos = { level = "none" }
+windows = { level = "none" }
+linux = { level = "none" }
