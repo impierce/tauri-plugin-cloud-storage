@@ -1,7 +1,8 @@
 use serde_json::{json, Value};
 use tauri_plugin_cloud_storage::{
     validate_file_id, CloudFile, ConnectionState, CreateFileOptions, Error, ErrorCode, FilePage,
-    ListFilesOptions, Provider, StorageStatus, UpdateFileOptions,
+    ListFilesOptions, Provider, StorageStatus, UpdateFileOptions, WaitForUploadOptions,
+    MAX_FILE_SIZE,
 };
 
 #[test]
@@ -145,4 +146,43 @@ fn binary_payloads_preserve_zero_and_non_utf8_bytes() {
     .is_err());
     assert!(validate_file_id("opaque:provider-id").is_ok());
     assert!(validate_file_id("id\0").is_err());
+}
+
+#[test]
+fn payload_and_upload_wait_limits_are_bounded() {
+    assert!(CreateFileOptions {
+        name: "limit".into(),
+        data: vec![0; MAX_FILE_SIZE],
+    }
+    .validate()
+    .is_ok());
+    assert_eq!(
+        CreateFileOptions {
+            name: "limit".into(),
+            data: vec![0; MAX_FILE_SIZE + 1],
+        }
+        .validate()
+        .unwrap_err()
+        .code,
+        ErrorCode::InvalidArgument
+    );
+
+    let defaults: WaitForUploadOptions = serde_json::from_value(json!({ "id": "opaque" })).unwrap();
+    assert_eq!(defaults.timeout_ms, 60_000);
+    for timeout_ms in [1_000, 60_000, 300_000] {
+        assert!(WaitForUploadOptions {
+            id: "opaque".into(),
+            timeout_ms
+        }
+        .validate()
+        .is_ok());
+    }
+    for timeout_ms in [0, 999, 300_001, u32::MAX] {
+        assert!(WaitForUploadOptions {
+            id: "opaque".into(),
+            timeout_ms
+        }
+        .validate()
+        .is_err());
+    }
 }

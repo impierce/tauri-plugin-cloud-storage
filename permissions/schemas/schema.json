@@ -295,6 +295,114 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the connect command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-connect",
+          "markdownDescription": "Enables the connect command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the connect command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-connect",
+          "markdownDescription": "Denies the connect command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-file",
+          "markdownDescription": "Enables the create_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-file",
+          "markdownDescription": "Denies the create_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delete-file",
+          "markdownDescription": "Enables the delete_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delete-file",
+          "markdownDescription": "Denies the delete_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the disconnect command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-disconnect",
+          "markdownDescription": "Enables the disconnect command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the disconnect command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-disconnect",
+          "markdownDescription": "Denies the disconnect command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-status",
+          "markdownDescription": "Enables the get_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-status",
+          "markdownDescription": "Denies the get_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_files command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-files",
+          "markdownDescription": "Enables the list_files command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_files command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-files",
+          "markdownDescription": "Denies the list_files command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-file",
+          "markdownDescription": "Enables the read_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-file",
+          "markdownDescription": "Denies the read_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-file",
+          "markdownDescription": "Enables the update_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-file",
+          "markdownDescription": "Denies the update_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the wait_for_upload command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-wait-for-upload",
+          "markdownDescription": "Enables the wait_for_upload command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the wait_for_upload command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-wait-for-upload",
+          "markdownDescription": "Denies the wait_for_upload command without any pre-configured scope."
+        },
+        {
           "description": "No cloud access is granted by default.",
           "type": "string",
           "const": "default",

@@ -10,17 +10,18 @@ App-scoped cloud file storage for Tauri mobile apps, using Google Drive on Andro
 and iCloud on iOS. The public interface operates on files and opaque bytes;
 applications own their data format, encryption, backup policy, and user interface.
 
-**Under development:** the first implementation step defines the Rust/TypeScript
-contract and native entry points. Cloud operations are not implemented yet. The
-package is not ready to publish or use for backups.
+**Under development:** iCloud file operations are implemented, but they have not
+yet been validated against a real iCloud account or device. Google Drive support,
+examples, CI, and release workflows are still pending. The package is not ready
+to publish or use for production backups.
 
 | Platform | Supported |
 | -------- | :-------: |
 | Linux    |    ❌     |
 | Windows  |    ❌     |
 | macOS    |    ❌     |
-| Android  | Planned: Google Drive app data |
-| iOS      | Planned: iCloud Documents |
+| Android  | Google Drive planned |
+| iOS      | iCloud Documents implemented; device validation pending |
 
 ## Installation
 
@@ -44,9 +45,10 @@ Registry installation instructions will be added with the first release.
 ## Requirements
 
 - This plugin requires a **Rust version of 1.77.2 or higher**.
-- The planned minimum Tauri version is **2.4.0** (Android authorization callback support).
+- The minimum supported Tauri version is **2.8.0**. It supplies the nonblocking
+  mobile plugin bridge used by every cloud operation.
 - The Android library targets Android 7 (**API level 24**) and higher. The Google Drive provider will require Google Play services and per-app OAuth configuration.
-- The Swift package targets **iOS 13** and higher. The iCloud provider will require an iCloud container, entitlements, and provisioning in the consuming app.
+- The Swift package targets **iOS 13** and higher. The iCloud provider requires an iCloud container, entitlements, and provisioning in the consuming app.
 - The final minimum versions will be confirmed through mobile builds before release.
 
 ## Usage
@@ -68,10 +70,11 @@ pub fn run() {
 
 ### Public API contract
 
-The following contract is defined in [`guest-js/index.ts`](guest-js/index.ts),
-with corresponding Rust models in [`src/models.rs`](src/models.rs).
-**These runtime functions are planned, not exported yet.** They will also be
-available through a Rust `CloudStorageExt` extension.
+The JavaScript API is defined in [`guest-js/index.ts`](guest-js/index.ts), with
+corresponding Rust models in [`src/models.rs`](src/models.rs) and an equivalent
+Rust `CloudStorageExt` extension. iCloud implements every operation below;
+Android currently exposes `googleDrive/unavailable` for status and rejects all
+other operations with `unavailable` until Step 3.
 
 | Operation | Purpose |
 | --- | --- |
@@ -83,6 +86,7 @@ available through a Rust `CloudStorageExt` extension.
 | `readFile(id)` | Read file bytes. |
 | `updateFile({ id, data })` | Replace contents, preserving the ID and name. |
 | `deleteFile(id)` | Permanently delete a file. |
+| `waitForUpload({ id, timeoutMs? })` | Wait for provider-confirmed upload. |
 
 Files have an opaque `id`, display `name`, byte `size`, and UTC RFC 3339
 `modifiedAt`. IDs belong to one provider, app, and account. Names are portable
@@ -93,6 +97,13 @@ Listings are unordered, with a default page size of 100 and a maximum of 1000.
 Follow `nextCursor` until it is absent, including after empty intermediate pages.
 Pagination does not promise an atomic snapshot while other devices modify files.
 Applications can collect all pages and sort by `modifiedAt` for a backup picker.
+The cursor is opaque, valid only for the current connection, and becomes invalid
+after reconnecting or an iCloud account change.
+
+The first release transfers whole files in memory and accepts files up to
+**10 MiB**. `Uint8Array` values are converted to private JSON byte arrays for the
+native bridge; callers do not encode them. Larger files require a later streaming
+API.
 
 Operations reject with a structured `{ code, message }` error. Applications should
 match `code`, not provider-specific wording. Missing files return `notFound`;
@@ -105,10 +116,53 @@ cancel an in-flight operation, revoke Google's OAuth grant, sign out of iCloud,
 or stop the OS from syncing already-written iCloud files. Reconnecting exposes
 existing files in the same app/account. Account changes require reconnection.
 
-The provider implementations will define and test their completion semantics:
-iCloud writes must distinguish local persistence from remote upload, while Drive
-writes wait for a server response. A resolved local write must never be presented
-as a confirmed remote backup.
+On iCloud, `createFile` and `updateFile` resolve after a coordinated local commit.
+They do not establish that the bytes have reached iCloud. Call `waitForUpload`
+after a write when an application must confirm a remote backup; it waits up to
+60 seconds by default (1–300 seconds allowed) and rejects with `timeout` or a
+provider error if upload cannot be confirmed. It observes iCloud metadata rather
+than polling while a coordinated file access is open.
+
+### iCloud configuration
+
+Enable **iCloud Documents** for the consuming iOS application and add an iCloud
+container to its entitlements and provisioning profile. Plugin registration does
+not add these host-app capabilities. The optional Tauri plugin configuration
+selects a container; omit it to use the first entitled container:
+
+```json
+{
+  "plugins": {
+    "cloud-storage": {
+      "containerIdentifier": "iCloud.com.example.wallet"
+    }
+  }
+}
+```
+
+`connect()` does not show an Apple account prompt. It succeeds only when the
+device has an iCloud identity and the selected container is entitled. An account
+change clears the local connection, so the app must call `connect()` again.
+
+### Permissions
+
+The plugin grants no frontend commands by default. Add only the operations an
+application needs to a capability, for example:
+
+```json
+{
+  "permissions": [
+    "cloud-storage:allow-get-status",
+    "cloud-storage:allow-connect",
+    "cloud-storage:allow-list-files",
+    "cloud-storage:allow-create-file",
+    "cloud-storage:allow-read-file",
+    "cloud-storage:allow-update-file",
+    "cloud-storage:allow-delete-file",
+    "cloud-storage:allow-wait-for-upload"
+  ]
+}
+```
 
 ### Application integration
 
@@ -124,13 +178,17 @@ not arbitrary files elsewhere in a user's Drive or iCloud account.
 
 ### Development steps
 
-1. Define the generic contract, validation, and mobile entry points (current).
-2. Implement iCloud file operations, command wiring, and JavaScript/Rust APIs.
+See the [implementation handoff plan](docs/IMPLEMENTATION_PLAN.md) for the next
+steps, acceptance criteria, and suggested commit boundaries.
+
+1. Define the generic contract, validation, and mobile entry points (complete).
+2. Implement iCloud file operations, command wiring, and JavaScript/Rust APIs (complete; device validation pending).
 3. Implement Google Drive authorization and app-data file operations.
 4. Validate on both mobile platforms and prepare the release/publish workflows.
 
-Run `cargo test`, `pnpm check`, and `pnpm build` to verify the current contract.
-Host tests validate the data contract; they do not exercise native cloud access.
+Run `cargo test`, `pnpm check`, and `pnpm build` to verify the contract and
+bindings. The native Swift core is typechecked separately. These checks do not
+exercise a real iCloud account; device validation remains required.
 
 ## Release strategy
 

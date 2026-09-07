@@ -38,3 +38,45 @@ impl Error {
         }
     }
 }
+
+#[cfg(mobile)]
+impl From<tauri::plugin::mobile::PluginInvokeError> for Error {
+    fn from(error: tauri::plugin::mobile::PluginInvokeError) -> Self {
+        match error {
+            tauri::plugin::mobile::PluginInvokeError::InvokeRejected(response) => {
+                let code = response
+                    .code
+                    .as_deref()
+                    .and_then(native_error_code)
+                    .unwrap_or(ErrorCode::Provider);
+                Error::new(
+                    code,
+                    response
+                        .message
+                        .unwrap_or_else(|| "The native provider rejected the operation".into()),
+                )
+            }
+            error => Error::new(ErrorCode::Internal, error.to_string()),
+        }
+    }
+}
+
+#[cfg(mobile)]
+fn native_error_code(value: &str) -> Option<ErrorCode> {
+    Some(match value {
+        "invalidArgument" => ErrorCode::InvalidArgument,
+        "unavailable" => ErrorCode::Unavailable,
+        "notConnected" => ErrorCode::NotConnected,
+        "cancelled" => ErrorCode::Cancelled,
+        "notFound" => ErrorCode::NotFound,
+        "conflict" => ErrorCode::Conflict,
+        "quotaExceeded" => ErrorCode::QuotaExceeded,
+        "network" => ErrorCode::Network,
+        "timeout" => ErrorCode::Timeout,
+        "busy" => ErrorCode::Busy,
+        "io" => ErrorCode::Io,
+        "provider" => ErrorCode::Provider,
+        "internal" => ErrorCode::Internal,
+        _ => return None,
+    })
+}

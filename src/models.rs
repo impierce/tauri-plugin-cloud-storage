@@ -2,6 +2,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, ErrorCode, Result};
 
+/// The largest file accepted by the first release.
+///
+/// Native bridges currently transfer an entire payload in one JSON message, so
+/// callers must use a streaming solution for larger files.
+pub const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
+
 /// The OS-specific provider used for this app's cloud files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -98,6 +104,7 @@ pub struct CreateFileOptions {
 
 impl CreateFileOptions {
     pub fn validate(&self) -> Result<()> {
+        validate_data_size(self.data.len())?;
         // A portable single filename, never a filesystem path. Byte length
         // ensures multibyte names fit the same limit on both platforms.
         if self.name.trim().is_empty()
@@ -127,7 +134,38 @@ pub struct UpdateFileOptions {
 
 impl UpdateFileOptions {
     pub fn validate(&self) -> Result<()> {
-        validate_file_id(&self.id)
+        validate_file_id(&self.id)?;
+        validate_data_size(self.data.len())
+    }
+}
+
+/// Waits for a provider to confirm upload of the current file contents.
+///
+/// A local iCloud write may succeed while the device is offline. Callers that
+/// must confirm remote backup should call this after `create_file` or
+/// `update_file`; a successful local write alone is not remote confirmation.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WaitForUploadOptions {
+    pub id: String,
+    #[serde(default = "default_upload_timeout_ms")]
+    pub timeout_ms: u32,
+}
+
+const fn default_upload_timeout_ms() -> u32 {
+    60_000
+}
+
+impl WaitForUploadOptions {
+    pub fn validate(&self) -> Result<()> {
+        validate_file_id(&self.id)?;
+        if !(1_000..=300_000).contains(&self.timeout_ms) {
+            return Err(Error::new(
+                ErrorCode::InvalidArgument,
+                "timeoutMs must be between 1000 and 300000",
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -137,6 +175,16 @@ pub fn validate_file_id(id: &str) -> Result<()> {
         return Err(Error::new(
             ErrorCode::InvalidArgument,
             "id must not be empty or contain control characters",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_data_size(size: usize) -> Result<()> {
+    if size > MAX_FILE_SIZE {
+        return Err(Error::new(
+            ErrorCode::InvalidArgument,
+            format!("data must not exceed {MAX_FILE_SIZE} bytes"),
         ));
     }
     Ok(())
