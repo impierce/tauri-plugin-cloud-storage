@@ -12,8 +12,8 @@ applications own their data format, encryption, backup policy, and user interfac
 
 **Under development:** iCloud file operations are implemented, but they have not
 yet been validated against a real iCloud account or device. Google Drive support,
-examples, CI, and release workflows are still pending. The package is not ready
-to publish or use for production backups.
+examples, successful CI validation, and publishing readiness are still pending.
+The package is not ready to publish or use for production backups.
 
 | Platform | Supported |
 | -------- | :-------: |
@@ -134,7 +134,7 @@ selects a container; omit it to use the first entitled container:
 {
   "plugins": {
     "cloud-storage": {
-      "containerIdentifier": "iCloud.com.example.wallet"
+      "containerIdentifier": "iCloud.com.example.app"
     }
   }
 }
@@ -164,9 +164,29 @@ application needs to a capability, for example:
 }
 ```
 
+### Android system backup
+
+[Android Auto Backup](https://developer.android.com/identity/data/autobackup) is
+a complementary, low-friction recovery mechanism for an Android host app. It
+backs up selected private app files through the device's configured backup
+service without this plugin managing OAuth or cloud credentials.
+
+It is intentionally **not** a `CloudStorage` provider: the system controls the
+backup schedule and restore lifecycle, retains only its current backup dataset,
+and does not expose operations to create, list, read, delete, or confirm upload
+of individual files. A host app must configure its own manifest and data
+extraction rules, decide which of its private files are eligible, and handle its
+own data format and encryption. This plugin neither enables Auto Backup nor
+generates host-app backup rules.
+
+Use the Google Drive provider when an app needs the file-oriented API documented
+above, such as an explicit backup action, a list of existing files, or remote
+upload confirmation. Android Auto Backup and Google Drive app data are separate
+stores and can be used independently.
+
 ### Application integration
 
-A wallet's toggle can persist its own backup preference and call `connect()` when
+A host app can persist its own backup preference and call `connect()` when
 enabled. It can list files for recovery and pass encrypted bytes to the generic
 file operations. Scheduling, retention, password prompts, and encryption stay in
 the application. Disabling automatic backups need not disconnect cloud access if
@@ -184,7 +204,7 @@ steps, acceptance criteria, and suggested commit boundaries.
 1. Define the generic contract, validation, and mobile entry points (complete).
 2. Implement iCloud file operations, command wiring, and JavaScript/Rust APIs (complete; device validation pending).
 3. Implement Google Drive authorization and app-data file operations.
-4. Validate on both mobile platforms and prepare the release/publish workflows.
+4. Validate on both mobile platforms and prepare the release/publish process.
 
 Run `cargo test`, `pnpm check`, and `pnpm build` to verify the contract and
 bindings. The native Swift core is typechecked separately. These checks do not
@@ -207,8 +227,9 @@ Both manifest versions must match the release tag.
 
 #### Solution
 
-The release workflows will be added after the mobile implementations are tested.
-The planned process is manually triggered, matching keystore's actual workflows:
+The checked-in workflows mirror `tauri-plugin-keystore`: builds run on pushes and
+pull requests; release and publishing remain manually dispatched. The planned
+process is:
 
 1. Run **release --dry-run** to determine the next version.
 2. Update both manifests and review/commit the changes, for example:
@@ -222,5 +243,6 @@ The planned process is manually triggered, matching keystore's actual workflows:
 5. Manually run **publish** against the same tested release commit. Publish npm
    prereleases with the `alpha` dist-tag rather than `latest`.
 
-Creating a release does not automatically publish the packages. No release or
-publishing workflows are installed in this implementation step.
+Creating a release does not automatically publish the packages. Workflow files
+do not establish registry access, package ownership, or successful mobile builds;
+those prerequisites must be verified before any manual release or publish run.

@@ -1,0 +1,68 @@
+name: build
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+
+jobs:
+  cargo_build:
+    name: cargo build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - name: apt-get install
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev
+      - run: cargo build
+      - run: cargo build --target aarch64-linux-android
+
+  build_android:
+    name: build Android plugin
+    runs-on: ubuntu-latest
+    needs: cargo_build
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: actions/setup-java@v6
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
+          cache-dependency-path: |
+            android/*.gradle*
+            android/**/gradle-wrapper.properties
+      # Building for an Android target runs `build.rs`, which copies the Tauri
+      # Android API into the gitignored `android/.tauri/tauri-api`. Gradle
+      # includes that directory as the `:tauri-android` project, so this step is
+      # a prerequisite for `./gradlew build` on a fresh checkout.
+      - run: cargo build --target aarch64-linux-android
+      - run: ./gradlew build --no-daemon
+        working-directory: ./android
+
+  build_ios:
+    name: build iOS plugin
+    # Requires the iOS SDK: the Swift sources import Foundation and the Tauri
+    # iOS API, and `build.rs` only vendors that API when running on macOS.
+    runs-on: macos-latest
+    needs: cargo_build
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      # Same as for Android: this vendors the Tauri iOS API into the gitignored
+      # `.tauri/tauri-api` that `ios/Package.swift` depends on.
+      - run: cargo build --target aarch64-apple-ios
+      - name: xcodebuild
+        run: xcodebuild -scheme tauri-plugin-cloud-storage -destination 'generic/platform=iOS' build
+        working-directory: ./ios
