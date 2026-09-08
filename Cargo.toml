@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-cloud-storage"
-version = "0.1.0"
+version = "2.1.0-alpha.1"
 authors = ["daniel-mader"]
 description = "App-scoped cloud file storage for Tauri on iOS and Android."
 edition = "2021"
